@@ -1,30 +1,31 @@
-import { NestFactory } from '@nestjs/core';
 import { ValidationPipe } from '@nestjs/common';
+import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
 
 /**
- * CONFIGURACIÓN GLOBAL DE LA APLICACIÓN
- * Aquí activamos los motores que NestJS usará en todo el sistema.
+ * CONFIGURACIÓN PARA GOOGLE CLOUD RUN
+ * Es vital que escuche en '0.0.0.0' y use el puerto 8080 por defecto.
  */
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
 
-  // 1. Activamos los Pipes de Validación Global
-  // Esto hace que los decoradores @IsEmail, @Length, etc., en los DTOs funcionen.
+  // Validación global (mantenemos tu configuración actual)
   app.useGlobalPipes(new ValidationPipe({
-    whitelist: true,      // Elimina campos que no estén definidos en el DTO
-    forbidNonWhitelisted: true, // Lanza error si envían campos extraños
-    transform: true,      // Transforma automáticamente los tipos (ej: string a number)
+    whitelist: true,
+    forbidNonWhitelisted: true,
+    transform: true,
   }));
 
-  // 2. Prefijo para la API (opcional pero recomendado)
-  // app.setGlobalPrefix('api/v1');
-
-  // 3. Iniciamos el servidor en el puerto definido en el Canvas (.env)
-  const port = process.env.PORT || 3000;
-  await app.listen(port);
+  /**
+   * 🚀 MODIFICACIÓN PARA GOOGLE CLOUD:
+   * 1. Google inyecta el puerto en la variable process.env.PORT (usualmente 8080).
+   * 2. '0.0.0.0' es OBLIGATORIO para que el tráfico externo entre al contenedor.
+   */
+  const port = process.env.PORT || 8080;
   
-  console.log(`🚀 Aplicación corriendo en: http://localhost:${port}`);
+  await app.listen(port, '0.0.0.0');
+  
+  console.log(`🚀 Servidor en la nube escuchando en el puerto: ${port}`);
 }
 
 bootstrap();
