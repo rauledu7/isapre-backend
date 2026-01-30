@@ -43,11 +43,11 @@ export class ClientEventsListener {
   }
 
   private async sendTelegramMessage(message: string) {
-    const BOT_TOKEN = "8193465418:AAG4TO2sY8DKM4NSbkxP4qjndAuO7C4Qx7k"; 
-    const CHAT_ID = 8204720579; // ID de Luisana configurado correctamente
+    const BOT_TOKEN = process.env.BOT_TOKEN; 
+    const CHAT_ID = process.env.CHAT_ID; // ID de Luisana configurado correctamente
 
     // Corregimos la validación: solo avisar si el valor es el placeholder original
-    if (CHAT_ID !== 8204720579) {
+    if (CHAT_ID !== process.env.CHAT_ID) {
       console.warn('⚠️ [Telegram] Falta configurar el CHAT_ID.');
       return;
     }
