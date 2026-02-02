@@ -16,6 +16,7 @@ async function bootstrap() {
       transform: true,
     }));
 
+    app.enableCors();
     // Google Cloud requiere el puerto 8080 y la IP 0.0.0.0
     const port = process.env.PORT || 8080;
     
