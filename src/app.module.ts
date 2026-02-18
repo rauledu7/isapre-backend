@@ -6,13 +6,17 @@ import * as dns from 'node:dns';
 import { ClientsModule } from './modules/clients/clients.module';
 
 /**
- * 🌐 SOLUCIÓN PARA ENETUNREACH (IPv6)
- * Esta línea es vital en Render. Obliga a Node.js a buscar primero 
- * direcciones IPv4, evitando el error de red que bloquea el arranque.
+ * 🚀 SOLUCIÓN NUCLEAR PARA ENETUNREACH (IPv6)
+ * Forzamos a Node.js a ignorar IPv6 a nivel de sistema. 
+ * Esto evita que el servidor intente conectar a la IP 2600:... que ves en los logs.
  */
-if (typeof dns.setDefaultResultOrder === 'function') {
-  dns.setDefaultResultOrder('ipv4first');
-}
+// @ts-ignore
+const dnsLookup = dns.lookup;
+// @ts-ignore
+dns.lookup = (hostname, options, callback) => {
+  if (typeof options === 'function') return dnsLookup(hostname, { family: 4 }, options);
+  return dnsLookup(hostname, { ...options, family: 4 }, callback);
+};
 
 @Module({
   imports: [
@@ -21,8 +25,8 @@ if (typeof dns.setDefaultResultOrder === 'function') {
     TypeOrmModule.forRoot({
       type: 'postgres',
       /**
-       * 🚀 CONEXIÓN INTELIGENTE
-       * Priorizamos DATABASE_URL. Si está presente, TypeORM la usa automáticamente.
+       * 🔗 CONEXIÓN
+       * Usamos DATABASE_URL para producción (Render/Supabase).
        */
       ...(process.env.DATABASE_URL 
         ? { url: process.env.DATABASE_URL } 
@@ -41,23 +45,16 @@ if (typeof dns.setDefaultResultOrder === 'function') {
       
       /**
        * 🔒 SEGURIDAD SSL
-       * Requerido por Supabase para aceptar la conexión desde Render.
+       * Obligatorio para Supabase.
        */
-      ssl: process.env.DATABASE_URL || process.env.DB_HOST 
-        ? { rejectUnauthorized: false } 
-        : false,
+      ssl: { rejectUnauthorized: false },
       
       /**
-       * 🏗️ AJUSTES DE RED (Solución al error de puertos)
+       * 🏗️ AJUSTES DE DRIVER
        */
       extra: {
-        // Forzamos IPv4 a nivel de driver para asegurar la conexión
-        family: 4,
-        // Tiempo de espera para no dar timeout tan rápido
+        family: 4, // Refuerzo de IPv4 a nivel de driver
         connectionTimeoutMillis: 10000,
-        /**
-         * Soporte para socket de Cloud SQL por si vuelves a Google Cloud.
-         */
         ...(process.env.DB_HOST?.startsWith('/cloudsql') 
           ? { socketPath: process.env.DB_HOST } 
           : {}
