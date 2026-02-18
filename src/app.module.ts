@@ -11,20 +11,15 @@ import { ClientsModule } from './modules/clients/clients.module';
     TypeOrmModule.forRoot({
       type: 'postgres',
       /**
-       * 🚀 CONFIGURACIÓN DE CONEXIÓN DINÁMICA
-       * Si existe DATABASE_URL (Supabase/Render), la usamos directamente.
-       * Si no, usamos las variables individuales para local.
+       * 🚀 CONFIGURACIÓN DE CONEXIÓN FLEXIBLE
+       * Usamos la URL completa si existe (Render/Supabase) o variables individuales (Local).
        */
-      ...(process.env.DATABASE_URL 
-        ? { url: process.env.DATABASE_URL } 
-        : {
-            host: process.env.DB_HOST,
-            port: parseInt(process.env.DB_PORT || '5432', 10),
-            username: process.env.DB_USER,
-            password: process.env.DB_PASSWORD,
-            database: process.env.DB_NAME,
-          }
-      ),
+      url: process.env.DATABASE_URL,
+      host: process.env.DB_HOST,
+      port: parseInt(process.env.DB_PORT || '5432', 10),
+      username: process.env.DB_USER,
+      password: process.env.DB_PASSWORD,
+      database: process.env.DB_NAME,
       
       autoLoadEntities: true,
       synchronize: true, 
@@ -32,26 +27,35 @@ import { ClientsModule } from './modules/clients/clients.module';
       
       /**
        * 🔒 SEGURIDAD SSL
-       * Requerido por Supabase y Render para evitar que la conexión sea rechazada.
+       * Supabase y Render requieren SSL. Activamos 'rejectUnauthorized: false' 
+       * para permitir certificados autofirmados de proveedores de nube.
        */
-      ssl: process.env.DATABASE_URL ? { rejectUnauthorized: false } : false,
+      ssl: process.env.DATABASE_URL || process.env.DB_HOST ? { rejectUnauthorized: false } : false,
       
       /**
-       * 🛠️ CONFIGURACIÓN EXTRA (Solución definitiva al ENETUNREACH)
-       * Usamos un objeto dinámico para los parámetros adicionales del driver 'pg'.
+       * 🛠️ CONFIGURACIÓN EXTRA (Solución definitiva al error de red)
        */
       extra: {
-        // 1. Si es Google Cloud Run, usamos el socketPath de Cloud SQL.
+        /**
+         * 🌐 ANTÍDOTO PARA ENETUNREACH (IPv6)
+         * Forzamos 'family: 4' para obligar al sistema a usar IPv4. 
+         * Esto evita que intente conectar a la dirección 2600:... de tus logs.
+         */
+        family: 4,
+
+        /**
+         * 🏗️ COMPATIBILIDAD CON GOOGLE CLOUD RUN
+         * Si detectamos un socket de Cloud SQL, lo priorizamos.
+         */
         ...(process.env.DB_HOST?.startsWith('/cloudsql') 
           ? { socketPath: process.env.DB_HOST } 
-          : { 
-              // 2. Para Render/Supabase, forzamos IPv4 (family: 4).
-              // Esto evita que Node.js intente usar IPv6, lo que causa el error ENETUNREACH.
-              family: 4 
-            }
+          : {}
         ),
-        // Agregamos un pequeño timeout para que la conexión no sea tan impaciente
-        connectionTimeoutMillis: 5000,
+
+        // Ajustes de estabilidad para producción
+        connectionTimeoutMillis: 10000, // 10 segundos de espera para conectar
+        idleTimeoutMillis: 30000,       // Cerrar conexiones inactivas tras 30s
+        max: 15,                        // Pool de máximo 15 conexiones
       }, 
     }),
 
