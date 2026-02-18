@@ -37,14 +37,22 @@ import { ClientsModule } from './modules/clients/clients.module';
       ssl: process.env.DATABASE_URL ? { rejectUnauthorized: false } : false,
       
       /**
-       * 🛠️ CONFIGURACIÓN EXTRA (Solución al ENETUNREACH)
-       * 1. Si es Google Cloud Run, usamos el socketPath de Cloud SQL.
-       * 2. Si es Render/Supabase, forzamos 'family: 4' para obligar el uso de IPv4
-       * y evitar el error de red IPv6 que viste en los logs.
+       * 🛠️ CONFIGURACIÓN EXTRA (Solución definitiva al ENETUNREACH)
+       * Usamos un objeto dinámico para los parámetros adicionales del driver 'pg'.
        */
-      extra: process.env.DB_HOST?.startsWith('/cloudsql') 
-        ? { socketPath: process.env.DB_HOST } 
-        : { family: 4 }, 
+      extra: {
+        // 1. Si es Google Cloud Run, usamos el socketPath de Cloud SQL.
+        ...(process.env.DB_HOST?.startsWith('/cloudsql') 
+          ? { socketPath: process.env.DB_HOST } 
+          : { 
+              // 2. Para Render/Supabase, forzamos IPv4 (family: 4).
+              // Esto evita que Node.js intente usar IPv6, lo que causa el error ENETUNREACH.
+              family: 4 
+            }
+        ),
+        // Agregamos un pequeño timeout para que la conexión no sea tan impaciente
+        connectionTimeoutMillis: 5000,
+      }, 
     }),
 
     EventEmitterModule.forRoot(),
