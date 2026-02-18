@@ -2,7 +2,16 @@ import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { EventEmitterModule } from '@nestjs/event-emitter';
 import { TypeOrmModule } from '@nestjs/typeorm';
+import * as dns from 'node:dns';
 import { ClientsModule } from './modules/clients/clients.module';
+
+/**
+ * 🌐 SOLUCIÓN GLOBAL PARA ENETUNREACH (IPv6)
+ * Esta línea obliga a Node.js a buscar primero direcciones IPv4.
+ * Es la solución definitiva cuando el entorno de nube (Render) intenta
+ * conectar a Supabase por una red IPv6 que no está disponible.
+ */
+dns.setDefaultResultOrder('ipv4first');
 
 @Module({
   imports: [
@@ -12,7 +21,7 @@ import { ClientsModule } from './modules/clients/clients.module';
       type: 'postgres',
       /**
        * 🚀 CONFIGURACIÓN DE CONEXIÓN FLEXIBLE
-       * Usamos la URL completa si existe (Render/Supabase) o variables individuales (Local).
+       * Priorizamos DATABASE_URL para Supabase/Render.
        */
       url: process.env.DATABASE_URL,
       host: process.env.DB_HOST,
@@ -27,25 +36,22 @@ import { ClientsModule } from './modules/clients/clients.module';
       
       /**
        * 🔒 SEGURIDAD SSL
-       * Supabase y Render requieren SSL. Activamos 'rejectUnauthorized: false' 
-       * para permitir certificados autofirmados de proveedores de nube.
+       * Supabase requiere SSL. 'rejectUnauthorized: false' es necesario
+       * para aceptar los certificados de los proveedores de nube.
        */
       ssl: process.env.DATABASE_URL || process.env.DB_HOST ? { rejectUnauthorized: false } : false,
       
       /**
-       * 🛠️ CONFIGURACIÓN EXTRA (Solución definitiva al error de red)
+       * 🛠️ CONFIGURACIÓN EXTRA
        */
       extra: {
         /**
-         * 🌐 ANTÍDOTO PARA ENETUNREACH (IPv6)
-         * Forzamos 'family: 4' para obligar al sistema a usar IPv4. 
-         * Esto evita que intente conectar a la dirección 2600:... de tus logs.
+         * Forzamos nuevamente la familia 4 a nivel de socket del driver 'pg'.
          */
         family: 4,
 
         /**
          * 🏗️ COMPATIBILIDAD CON GOOGLE CLOUD RUN
-         * Si detectamos un socket de Cloud SQL, lo priorizamos.
          */
         ...(process.env.DB_HOST?.startsWith('/cloudsql') 
           ? { socketPath: process.env.DB_HOST } 
@@ -53,9 +59,9 @@ import { ClientsModule } from './modules/clients/clients.module';
         ),
 
         // Ajustes de estabilidad para producción
-        connectionTimeoutMillis: 10000, // 10 segundos de espera para conectar
-        idleTimeoutMillis: 30000,       // Cerrar conexiones inactivas tras 30s
-        max: 15,                        // Pool de máximo 15 conexiones
+        connectionTimeoutMillis: 15000, // Aumentamos a 15s por si la red está lenta
+        idleTimeoutMillis: 30000,
+        max: 15,
       }, 
     }),
 
