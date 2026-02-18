@@ -12,7 +12,8 @@ import { ClientsModule } from './modules/clients/clients.module';
       type: 'postgres',
       /**
        * 🚀 CONEXIÓN INTELIGENTE
-       * Si existe DATABASE_URL, TypeORM la usa y omite los campos individuales.
+       * Priorizamos DATABASE_URL. Si está presente, TypeORM la usa automáticamente.
+       * Si no, utiliza los campos desglosados (útil para desarrollo local).
        */
       ...(process.env.DATABASE_URL 
         ? { url: process.env.DATABASE_URL } 
@@ -26,16 +27,24 @@ import { ClientsModule } from './modules/clients/clients.module';
       ),
       
       autoLoadEntities: true,
-      synchronize: true, // Esto creará las tablas en tu nueva 'isapre_db'
+      synchronize: true, // Esto creará las tablas automáticamente en 'isapre_db'
       logging: true,
       
-      // SSL es obligatorio para Supabase desde Render
-      ssl: { rejectUnauthorized: false },
+      /**
+       * 🔒 SEGURIDAD SSL
+       * Requerido por Supabase. Permitimos certificados de proveedores de nube.
+       */
+      ssl: process.env.DATABASE_URL || process.env.DB_HOST 
+        ? { rejectUnauthorized: false } 
+        : false,
       
-      // Forzamos IPv4 para evitar el error ENETUNREACH que vimos en los logs
-      extra: {
-        family: 4 
-      },
+      /**
+       * 🏗️ COMPATIBILIDAD DE INFRAESTRUCTURA
+       * Mantenemos el soporte para socket de Cloud SQL por si vuelves a Google Cloud.
+       */
+      extra: process.env.DB_HOST?.startsWith('/cloudsql') 
+        ? { socketPath: process.env.DB_HOST } 
+        : {},
     }),
 
     EventEmitterModule.forRoot(),
