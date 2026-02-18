@@ -12,25 +12,34 @@ import { ClientsModule } from './modules/clients/clients.module';
       type: 'postgres',
       /**
        * 🚀 SOLUCIÓN FINAL AL ENOTFOUND:
-       * Priorizamos la propiedad 'url'. Si existe DATABASE_URL, TypeORM ignora el resto.
-       * Esto evita que se mezcle con variables antiguas como DB_HOST.
+       * Priorizamos la propiedad 'url'. Si existe DATABASE_URL, TypeORM la usa directamente.
+       * Esto es ideal para Supabase o Render.
        */
       ...(process.env.DATABASE_URL 
         ? { url: process.env.DATABASE_URL } 
         : {
-            host: process.env.DB_HOST || 'localhost',
-            port: parseInt(process.env.DB_PORT, 10) || 5432,
-            username: process.env.DB_USER || 'postgres',
-            password: process.env.DB_PASSWORD || 'admin123',
-            database: process.env.DB_NAME || 'isapre_db',
+            host: process.env.DB_HOST,
+            port: parseInt(process.env.DB_PORT || '5432', 10),
+            username: process.env.DB_USER,
+            password: process.env.DB_PASSWORD,
+            database: process.env.DB_NAME,
           }
       ),
       
       autoLoadEntities: true,
       synchronize: true, 
       logging: true,
-      // Requerido para Supabase en la nube
+      
+      /**
+       * 🔒 CONFIGURACIÓN DE SEGURIDAD Y CONEXIÓN:
+       * 1. SSL: Requerido para conexiones seguras (Supabase/Render).
+       * 2. extra: Permite usar el socket de Unix si estamos en Google Cloud Run.
+       */
       ssl: process.env.DATABASE_URL ? { rejectUnauthorized: false } : false,
+      
+      extra: process.env.DB_HOST?.startsWith('/cloudsql') 
+        ? { socketPath: process.env.DB_HOST } 
+        : {},
     }),
 
     EventEmitterModule.forRoot(),
