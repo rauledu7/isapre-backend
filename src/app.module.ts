@@ -11,9 +11,8 @@ import { ClientsModule } from './modules/clients/clients.module';
     TypeOrmModule.forRoot({
       type: 'postgres',
       /**
-       * 🚀 CONFIGURACIÓN DE CONEXIÓN DINÁMICA
-       * Si existe DATABASE_URL (Supabase/Render), TypeORM la usa como prioridad.
-       * De lo contrario, utiliza las variables individuales (Local/Dev).
+       * 🚀 CONEXIÓN INTELIGENTE
+       * Si existe DATABASE_URL, TypeORM la usa y omite los campos individuales.
        */
       ...(process.env.DATABASE_URL 
         ? { url: process.env.DATABASE_URL } 
@@ -27,24 +26,16 @@ import { ClientsModule } from './modules/clients/clients.module';
       ),
       
       autoLoadEntities: true,
-      synchronize: true, // Sincroniza las tablas automáticamente
+      synchronize: true, // Esto creará las tablas en tu nueva 'isapre_db'
       logging: true,
       
-      /**
-       * 🔒 SEGURIDAD SSL
-       * Requerido para conectar de forma segura a Supabase y Render.
-       */
-      ssl: process.env.DATABASE_URL || process.env.DB_HOST 
-        ? { rejectUnauthorized: false } 
-        : false,
+      // SSL es obligatorio para Supabase desde Render
+      ssl: { rejectUnauthorized: false },
       
-      /**
-       * 🏗️ COMPATIBILIDAD CON GOOGLE CLOUD
-       * Mantenemos el soporte para el socket de Cloud SQL por si vuelves a GCP.
-       */
-      extra: process.env.DB_HOST?.startsWith('/cloudsql') 
-        ? { socketPath: process.env.DB_HOST } 
-        : {},
+      // Forzamos IPv4 para evitar el error ENETUNREACH que vimos en los logs
+      extra: {
+        family: 4 
+      },
     }),
 
     EventEmitterModule.forRoot(),
