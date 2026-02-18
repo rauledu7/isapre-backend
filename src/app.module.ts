@@ -10,21 +10,27 @@ import { ClientsModule } from './modules/clients/clients.module';
 
     TypeOrmModule.forRoot({
       type: 'postgres',
-      host: process.env.DB_HOST, 
-      port: parseInt(process.env.DB_PORT || '5432', 10),
-      username: process.env.DB_USER,
-      password: process.env.DB_PASSWORD,
-      database: process.env.DB_NAME,
+      /**
+       * 🚀 SOLUCIÓN FINAL AL ENOTFOUND:
+       * Priorizamos la propiedad 'url'. Si existe DATABASE_URL, TypeORM ignora el resto.
+       * Esto evita que se mezcle con variables antiguas como DB_HOST.
+       */
+      ...(process.env.DATABASE_URL 
+        ? { url: process.env.DATABASE_URL } 
+        : {
+            host: process.env.DB_HOST || 'localhost',
+            port: parseInt(process.env.DB_PORT, 10) || 5432,
+            username: process.env.DB_USER || 'postgres',
+            password: process.env.DB_PASSWORD || 'admin123',
+            database: process.env.DB_NAME || 'isapre_db',
+          }
+      ),
+      
       autoLoadEntities: true,
       synchronize: true, 
       logging: true,
-      /**
-       * 🚀 ESTA ES LA LÍNEA QUE DEBES AGREGAR:
-       * Permite que TypeORM use el socket de Unix que Google Cloud Run requiere.
-       */
-      extra: process.env.DB_HOST?.startsWith('/cloudsql') 
-        ? { socketPath: process.env.DB_HOST } 
-        : {},
+      // Requerido para Supabase en la nube
+      ssl: process.env.DATABASE_URL ? { rejectUnauthorized: false } : false,
     }),
 
     EventEmitterModule.forRoot(),
