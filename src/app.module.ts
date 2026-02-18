@@ -6,10 +6,8 @@ import * as dns from 'node:dns';
 import { ClientsModule } from './modules/clients/clients.module';
 
 /**
- * 🌐 SOLUCIÓN GLOBAL PARA ENETUNREACH (IPv6)
- * Esta línea obliga a Node.js a buscar primero direcciones IPv4.
- * Es la solución definitiva cuando el entorno de nube (Render) intenta
- * conectar a Supabase por una red IPv6 que no está disponible.
+ * 🌐 SOLUCIÓN NIVEL SISTEMA
+ * Forzamos a Node.js a ignorar IPv6 en todas las resoluciones DNS.
  */
 dns.setDefaultResultOrder('ipv4first');
 
@@ -20,8 +18,7 @@ dns.setDefaultResultOrder('ipv4first');
     TypeOrmModule.forRoot({
       type: 'postgres',
       /**
-       * 🚀 CONFIGURACIÓN DE CONEXIÓN FLEXIBLE
-       * Priorizamos DATABASE_URL para Supabase/Render.
+       * 🚀 CONFIGURACIÓN DE CONEXIÓN
        */
       url: process.env.DATABASE_URL,
       host: process.env.DB_HOST,
@@ -35,33 +32,37 @@ dns.setDefaultResultOrder('ipv4first');
       logging: true,
       
       /**
-       * 🔒 SEGURIDAD SSL
-       * Supabase requiere SSL. 'rejectUnauthorized: false' es necesario
-       * para aceptar los certificados de los proveedores de nube.
+       * 🔒 SEGURIDAD SSL (Ajuste para Supabase)
+       * Algunos servidores de Supabase rechazan la conexión si no es explícitamente segura.
        */
-      ssl: process.env.DATABASE_URL || process.env.DB_HOST ? { rejectUnauthorized: false } : false,
+      ssl: process.env.DATABASE_URL || process.env.DB_HOST 
+        ? { 
+            rejectUnauthorized: false,
+          } 
+        : false,
       
       /**
-       * 🛠️ CONFIGURACIÓN EXTRA
+       * 🛠️ AJUSTES DE RED Y DRIVER (Solución al ENETUNREACH)
        */
       extra: {
         /**
-         * Forzamos nuevamente la familia 4 a nivel de socket del driver 'pg'.
+         * 🚨 EL ANTÍDOTO DEFINITIVO
+         * Forzamos al socket de red a usar la familia 4 (IPv4) exclusivamente.
+         * Esto debería impedir que el driver siquiera vea la dirección 2600:...
          */
         family: 4,
 
         /**
-         * 🏗️ COMPATIBILIDAD CON GOOGLE CLOUD RUN
+         * 🏗️ COMPATIBILIDAD GOOGLE CLOUD
          */
         ...(process.env.DB_HOST?.startsWith('/cloudsql') 
           ? { socketPath: process.env.DB_HOST } 
           : {}
         ),
 
-        // Ajustes de estabilidad para producción
-        connectionTimeoutMillis: 15000, // Aumentamos a 15s por si la red está lenta
-        idleTimeoutMillis: 30000,
-        max: 15,
+        // Ajustes de rendimiento para evitar que Render mate la conexión
+        keepAlive: true,
+        connectionTimeoutMillis: 20000, // 20 segundos de gracia
       }, 
     }),
 
