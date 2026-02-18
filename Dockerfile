@@ -1,20 +1,26 @@
-# Usamos una imagen ligera de Node.js
-FROM node:20-alpine
-
-# Creamos el directorio de trabajo
+# 1. Etapa de construcción
+FROM node:20-alpine AS builder
 WORKDIR /usr/src/app
 
-# Copiamos los archivos de dependencias primero para aprovechar el cache de Docker
+# Copiamos dependencias
 COPY package*.json ./
-
-# Instalamos las dependencias
 RUN npm install
 
-# Copiamos el resto del código
+# Copiamos el código y construimos la app (genera la carpeta /dist)
 COPY . .
+RUN npm run build
 
-# Exponemos el puerto que usa NestJS
-EXPOSE 3000
+# 2. Etapa de ejecución (Imagen final ligera)
+FROM node:20-alpine
+WORKDIR /usr/src/app
 
-# Comando para iniciar en modo desarrollo con watch
-CMD ["npm", "run", "start:dev"]
+# Solo copiamos lo necesario para correr la app
+COPY --from=builder /usr/src/app/package*.json ./
+COPY --from=builder /usr/src/app/node_modules ./node_modules
+COPY --from=builder /usr/src/app/dist ./dist
+
+# Render usa puertos dinámicos, NestJS escuchará el que le den
+EXPOSE 8080
+
+# Comando para PRODUCCIÓN
+CMD ["npm", "run", "start:prod"]
