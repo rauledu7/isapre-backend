@@ -11,9 +11,9 @@ import { ClientsModule } from './modules/clients/clients.module';
     TypeOrmModule.forRoot({
       type: 'postgres',
       /**
-       * 🚀 SOLUCIÓN FINAL AL ENOTFOUND:
-       * Priorizamos la propiedad 'url'. Si existe DATABASE_URL, TypeORM la usa directamente.
-       * Esto es ideal para Supabase o Render.
+       * 🚀 CONFIGURACIÓN DE CONEXIÓN DINÁMICA
+       * Si existe DATABASE_URL (Supabase/Render), la usamos directamente.
+       * Si no, usamos las variables individuales para local.
        */
       ...(process.env.DATABASE_URL 
         ? { url: process.env.DATABASE_URL } 
@@ -31,15 +31,20 @@ import { ClientsModule } from './modules/clients/clients.module';
       logging: true,
       
       /**
-       * 🔒 CONFIGURACIÓN DE SEGURIDAD Y CONEXIÓN:
-       * 1. SSL: Requerido para conexiones seguras (Supabase/Render).
-       * 2. extra: Permite usar el socket de Unix si estamos en Google Cloud Run.
+       * 🔒 SEGURIDAD SSL
+       * Requerido por Supabase y Render para evitar que la conexión sea rechazada.
        */
       ssl: process.env.DATABASE_URL ? { rejectUnauthorized: false } : false,
       
+      /**
+       * 🛠️ CONFIGURACIÓN EXTRA (Solución al ENETUNREACH)
+       * 1. Si es Google Cloud Run, usamos el socketPath de Cloud SQL.
+       * 2. Si es Render/Supabase, forzamos 'family: 4' para obligar el uso de IPv4
+       * y evitar el error de red IPv6 que viste en los logs.
+       */
       extra: process.env.DB_HOST?.startsWith('/cloudsql') 
         ? { socketPath: process.env.DB_HOST } 
-        : {},
+        : { family: 4 }, 
     }),
 
     EventEmitterModule.forRoot(),
