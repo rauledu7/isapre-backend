@@ -6,17 +6,13 @@ import * as dns from 'node:dns';
 import { ClientsModule } from './modules/clients/clients.module';
 
 /**
- * 🚀 SOLUCIÓN NUCLEAR PARA ENETUNREACH (IPv6)
- * Forzamos a Node.js a ignorar IPv6 a nivel de sistema. 
- * Esto evita que el servidor intente conectar a la IP 2600:... que ves en los logs.
+ * 🌐 SOLUCIÓN ESTÁNDAR PARA RENDER
+ * En lugar de sobrescribir el DNS, usamos el método oficial para 
+ * priorizar IPv4. Esto evita el crash que viste en los logs.
  */
-// @ts-ignore
-const dnsLookup = dns.lookup;
-// @ts-ignore
-dns.lookup = (hostname, options, callback) => {
-  if (typeof options === 'function') return dnsLookup(hostname, { family: 4 }, options);
-  return dnsLookup(hostname, { ...options, family: 4 }, callback);
-};
+if (dns.setDefaultResultOrder) {
+  dns.setDefaultResultOrder('ipv4first');
+}
 
 @Module({
   imports: [
@@ -25,8 +21,8 @@ dns.lookup = (hostname, options, callback) => {
     TypeOrmModule.forRoot({
       type: 'postgres',
       /**
-       * 🔗 CONEXIÓN
-       * Usamos DATABASE_URL para producción (Render/Supabase).
+       * 🚀 CONEXIÓN PARA PRODUCCIÓN
+       * Usamos la DATABASE_URL que configuraste en Render.
        */
       ...(process.env.DATABASE_URL 
         ? { url: process.env.DATABASE_URL } 
@@ -43,22 +39,17 @@ dns.lookup = (hostname, options, callback) => {
       synchronize: true, 
       logging: true,
       
-      /**
-       * 🔒 SEGURIDAD SSL
-       * Obligatorio para Supabase.
-       */
+      // SSL obligatorio para Supabase
       ssl: { rejectUnauthorized: false },
       
-      /**
-       * 🏗️ AJUSTES DE DRIVER
-       */
       extra: {
-        family: 4, // Refuerzo de IPv4 a nivel de driver
+        /**
+         * 🚨 ANTÍDOTO ENETUNREACH
+         * Forzamos al driver de la base de datos a usar IPv4 (familia 4).
+         * Esto ignora la dirección 2600:... que causa el error en Render.
+         */
+        family: 4,
         connectionTimeoutMillis: 10000,
-        ...(process.env.DB_HOST?.startsWith('/cloudsql') 
-          ? { socketPath: process.env.DB_HOST } 
-          : {}
-        ),
       },
     }),
 
