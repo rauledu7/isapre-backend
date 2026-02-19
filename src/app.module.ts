@@ -3,7 +3,7 @@ import { ConfigModule } from '@nestjs/config';
 import { EventEmitterModule } from '@nestjs/event-emitter';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import * as dns from 'node:dns';
-import { ClientsModule } from '../modules/clients/clients.module';
+import { ClientsModule } from './modules/clients/clients.module';
 
 /**
  * 🛡️ ESCUDO ANTI-IPV6 PARA RENDER
