@@ -3,12 +3,12 @@ import { ConfigModule } from '@nestjs/config';
 import { EventEmitterModule } from '@nestjs/event-emitter';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import * as dns from 'node:dns';
-import { ClientsModule } from './modules/clients/clients.module';
+import { ClientsModule } from '../modules/clients/clients.module';
 
 /**
- * 🌐 SOLUCIÓN ESTÁNDAR PARA RENDER
- * En lugar de sobrescribir el DNS, usamos el método oficial para 
- * priorizar IPv4. Esto evita el crash que viste en los logs.
+ * 🛡️ ESCUDO ANTI-IPV6 PARA RENDER
+ * Esta configuración es la "bala de plata". Obliga a todo el proceso de Node.js
+ * a ignorar las rutas IPv6 (que causan el error ENETUNREACH en Render).
  */
 if (dns.setDefaultResultOrder) {
   dns.setDefaultResultOrder('ipv4first');
@@ -20,36 +20,25 @@ if (dns.setDefaultResultOrder) {
 
     TypeOrmModule.forRoot({
       type: 'postgres',
-      /**
-       * 🚀 CONEXIÓN PARA PRODUCCIÓN
-       * Usamos la DATABASE_URL que configuraste en Render.
-       */
-      ...(process.env.DATABASE_URL 
-        ? { url: process.env.DATABASE_URL } 
-        : {
-            host: process.env.DB_HOST,
-            port: parseInt(process.env.DB_PORT || '5432', 10),
-            username: process.env.DB_USER,
-            password: process.env.DB_PASSWORD,
-            database: process.env.DB_NAME,
-          }
-      ),
+      // Priorizamos la URL de conexión única (Supabase)
+      url: process.env.DATABASE_URL,
       
       autoLoadEntities: true,
       synchronize: true, 
       logging: true,
       
-      // SSL obligatorio para Supabase
-      ssl: { rejectUnauthorized: false },
+      // SSL con configuración de tolerancia para nubes gratuitas
+      ssl: {
+        rejectUnauthorized: false,
+      },
       
+      /**
+       * ⚙️ CONFIGURACIÓN DEL DRIVER (pg)
+       * Forzamos la familia 4 (IPv4) directamente en el socket de red.
+       */
       extra: {
-        /**
-         * 🚨 ANTÍDOTO ENETUNREACH
-         * Forzamos al driver de la base de datos a usar IPv4 (familia 4).
-         * Esto ignora la dirección 2600:... que causa el error en Render.
-         */
-        family: 4,
-        connectionTimeoutMillis: 10000,
+        family: 4, 
+        connectionTimeoutMillis: 15000, // Damos 15s para que la red de Render despierte
       },
     }),
 
