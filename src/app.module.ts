@@ -6,9 +6,8 @@ import * as dns from 'node:dns';
 import { ClientsModule } from './modules/clients/clients.module';
 
 /**
- * 🛡️ ESCUDO ANTI-IPV6 PARA RENDER
- * Esta configuración es la "bala de plata". Obliga a todo el proceso de Node.js
- * a ignorar las rutas IPv6 (que causan el error ENETUNREACH en Render).
+ * 🌐 CONFIGURACIÓN GLOBAL DE RED
+ * Establecemos el orden de resolución a IPv4 como prioridad máxima.
  */
 if (dns.setDefaultResultOrder) {
   dns.setDefaultResultOrder('ipv4first');
@@ -20,25 +19,29 @@ if (dns.setDefaultResultOrder) {
 
     TypeOrmModule.forRoot({
       type: 'postgres',
-      // Priorizamos la URL de conexión única (Supabase)
+      /**
+       * 🚀 CONEXIÓN DE PRODUCCIÓN
+       * Usamos la DATABASE_URL de Supabase.
+       */
       url: process.env.DATABASE_URL,
       
       autoLoadEntities: true,
       synchronize: true, 
       logging: true,
       
-      // SSL con configuración de tolerancia para nubes gratuitas
+      // SSL requerido para Supabase
       ssl: {
         rejectUnauthorized: false,
       },
       
       /**
-       * ⚙️ CONFIGURACIÓN DEL DRIVER (pg)
-       * Forzamos la familia 4 (IPv4) directamente en el socket de red.
+       * 🛠️ AJUSTES DEL DRIVER PG
+       * 'family: 4' obliga al socket de la base de datos a usar IPv4.
+       * Esto es lo que detendrá el error ENETUNREACH 2600:...
        */
       extra: {
-        family: 4, 
-        connectionTimeoutMillis: 15000, // Damos 15s para que la red de Render despierte
+        family: 4,
+        connectionTimeoutMillis: 15000,
       },
     }),
 
