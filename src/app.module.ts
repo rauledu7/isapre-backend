@@ -8,35 +8,38 @@ import { ClientsModule } from './modules/clients/clients.module';
   imports: [
     ConfigModule.forRoot({ isGlobal: true }),
 
-    TypeOrmModule.forRoot({
-      type: 'postgres',
-      /**
-       * 🚀 CONEXIÓN DE PRODUCCIÓN
-       * Usamos la DATABASE_URL de Supabase. Al usar el objeto 'url',
-       * TypeORM ignora host/port/user individuales.
-       */
-      url: process.env.DATABASE_URL,
-      
-      autoLoadEntities: true,
-      synchronize: true, 
-      logging: true,
-      
-      /**
-       * 🔒 SEGURIDAD SSL
-       * Supabase requiere SSL activo con certificados autorizados.
-       */
-      ssl: {
-        rejectUnauthorized: false,
-      },
-      
-      /**
-       * 🛠️ AJUSTES DEL DRIVER PG
-       * Mantenemos family: 4 como red de seguridad para asegurar que el 
-       * driver de la base de datos use siempre la ruta de IPv4.
-       */
-      extra: {
-        family: 4,
-        connectionTimeoutMillis: 15000,
+    TypeOrmModule.forRootAsync({
+      useFactory: () => {
+        /**
+         * 🛠️ PROCESAMIENTO DE CONEXIÓN
+         * Extraemos los datos de la URL para forzar IPv4 manualmente.
+         */
+        const dbUrl = new URL(process.env.DATABASE_URL || '');
+        
+        return {
+          type: 'postgres',
+          host: dbUrl.hostname,
+          port: parseInt(dbUrl.port || '5432', 10),
+          username: dbUrl.username,
+          password: decodeURIComponent(dbUrl.password),
+          database: dbUrl.pathname.slice(1) || 'postgres',
+          
+          autoLoadEntities: true,
+          synchronize: true,
+          logging: true,
+          
+          ssl: { rejectUnauthorized: false },
+
+          /**
+           * 🚨 EL ÚLTIMO RECURSO
+           * Al pasar el host por separado y no como URL completa, 
+           * esta opción de 'family: 4' se vuelve obligatoria para el socket.
+           */
+          extra: {
+            family: 4,
+            connectionTimeoutMillis: 20000,
+          },
+        };
       },
     }),
 
