@@ -1,21 +1,22 @@
 version: '3.8'
 
 services:
-  # Base de Datos PostgreSQL
+  # 1. Base de Datos PostgreSQL
   db:
     image: postgres:15-alpine
     container_name: isapre-db
     restart: always
     environment:
-      POSTGRES_USER: ${DB_USER}
-      POSTGRES_PASSWORD: ${DB_PASSWORD}
-      POSTGRES_DB: ${DB_NAME}
+      # Estos valores se leen de tu archivo .env local
+      POSTGRES_USER: ${DB_USER:-admin}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-admin123}
+      POSTGRES_DB: ${DB_NAME:-isapre_db}
     ports:
       - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
 
-  # Backend NestJS
+  # 2. Backend NestJS
   api:
     build: 
       context: .
@@ -25,15 +26,23 @@ services:
     ports:
       - "3000:3000"
     environment:
-      DATABASE_URL: postgresql://${DB_USER}:${DB_PASSWORD}@db:5432/${DB_NAME}
-      PORT: 3000
+      # IMPORTANTE: No pasamos DATABASE_URL para forzar el modo local (SSL OFF)
+      - DB_HOST=db
+      - DB_PORT=5432
+      - DB_USER=${DB_USER:-admin}
+      - DB_PASSWORD=${DB_PASSWORD:-admin123}
+      - DB_NAME=${DB_NAME:-isapre_db}
+      - PORT=3000
+      # Configuración de Telegram para que el bot funcione en local
+      - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN}
+      - CHAT_ID=${CHAT_ID}
     volumes:
       - .:/usr/src/app
       - /usr/src/app/node_modules
     depends_on:
       - db
 
-  # Herramienta visual para la base de datos
+  # 3. Herramienta visual (Adminer)
   adminer:
     image: adminer
     container_name: isapre-adminer
