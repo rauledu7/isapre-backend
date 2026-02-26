@@ -16,8 +16,16 @@ async function bootstrap() {
       transform: true,
     }));
 
-    app.enableCors();
-    // Google Cloud requiere el puerto 8080 y la IP 0.0.0.0
+    /**
+     * 🛡️ HABILITAR CORS (Solución al error de la imagen)
+     * Esto permite que tu frontend de Next.js se comunique con este backend.
+     */
+    app.enableCors({
+      origin: '*', // En producción podrías poner la URL específica de tu frontend
+      methods: 'GET,HEAD,PUT,PATCH,POST,DELETE',
+      credentials: true,
+    });
+        // Google Cloud requiere el puerto 8080 y la IP 0.0.0.0
     const port = process.env.PORT || 8080;
     
     logger.log(`2. 📡 Intentando escuchar en el puerto ${port}...`);
