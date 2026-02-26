@@ -8,6 +8,10 @@ import { OnEvent } from '@nestjs/event-emitter';
 @Injectable()
 export class ClientEventsListener {
   
+  /**
+   * Maneja el evento de registro.
+   * IMPORTANTE: El payload ahora usa 'dependentsCount' para el número de cargas.
+   */
   @OnEvent('client.registered')
   async handleClientRegistered(payload: { 
     name: string; 
@@ -17,11 +21,16 @@ export class ClientEventsListener {
     phone: string;
     age: number;
     income: number;
-    dependents: number;
+    dependentsCount: number; // Coincide con lo que emite el Use Case
     healthInsurance: string;
   }){
     console.log(`[Telegram] Preparando notificación para: ${payload.name}`);
 
+    // Formateamos el ingreso a moneda CLP para que se vea profesional
+    const formattedIncome = new Intl.NumberFormat('es-CL', {
+      style: 'currency',
+      currency: 'CLP',
+    }).format(payload.income);
 
     const message = `🚀 <b>NUEVO CLIENTE REGISTRADO</b>\n\n` +
                     `👤 <b>Nombre:</b> ${payload.name}\n` +
@@ -29,8 +38,8 @@ export class ClientEventsListener {
                     `🆔 <b>RUT:</b> ${payload.rut}\n` +
                     `📞 <b>Teléfono:</b> ${payload.phone}\n` +
                     `🎂 <b>Edad:</b> ${payload.age} años\n` +
-                    `💰 <b>Ingreso mensual:</b> ${payload.income}\n` +
-                    `👥 <b>Cargas:</b> ${payload.dependents}\n` +
+                    `💰 <b>Ingreso mensual:</b> ${formattedIncome}\n` +
+                    `👥 <b>Cargas:</b> ${payload.dependentsCount}\n` + // Usamos dependentsCount
                     `🏥 <b>Previsión actual:</b> ${payload.healthInsurance}\n\n` +
                     `🆔 <b>ID Interno:</b> <code>${payload.clientId.substring(0, 8)}...</code>\n\n` +
                     `<i>Favor revisar el panel de administración.</i>`;
@@ -43,12 +52,12 @@ export class ClientEventsListener {
   }
 
   private async sendTelegramMessage(message: string) {
-    const BOT_TOKEN = process.env.BOT_TOKEN; 
-    const CHAT_ID = process.env.CHAT_ID; // ID de Luisana configurado correctamente
+    // Usamos los nombres exactos que tienes en Google Cloud Run
+    const BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN; 
+    const CHAT_ID = process.env.CHAT_ID; 
 
-    // Corregimos la validación: solo avisar si el valor es el placeholder original
-    if (CHAT_ID !== process.env.CHAT_ID) {
-      console.warn('⚠️ [Telegram] Falta configurar el CHAT_ID.');
+    if (!BOT_TOKEN || !CHAT_ID) {
+      console.warn('⚠️ [Telegram] Falta configurar TELEGRAM_BOT_TOKEN o CHAT_ID en las variables de entorno.');
       return;
     }
 
@@ -70,7 +79,7 @@ export class ClientEventsListener {
       if (response.ok) {
         console.log(`[Telegram] ✅ Notificación enviada con éxito.`);
       } else {
-        console.error(`[Telegram] ⛔ Error: ${result.description}`);
+        console.error(`[Telegram] ⛔ Error de API: ${result.description}`);
       }
     } catch (err) {
       console.error(`[Telegram] 🛑 Error de red: ${err.message}`);
