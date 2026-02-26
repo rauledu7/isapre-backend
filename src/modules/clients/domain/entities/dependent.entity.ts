@@ -32,7 +32,7 @@ export class Dependent {
         }
 
         // La edad no puede ser mayor a 100 años para el cálculo de planes
-        if (this.age < 100) {
+        if (this.age > 150) {
             throw new Error('La edad declarada no puede ser un valor mayor a 100 años');
         }
     }
