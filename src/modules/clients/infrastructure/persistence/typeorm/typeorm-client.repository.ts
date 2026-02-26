@@ -19,8 +19,6 @@ export class TypeOrmClientRepository implements ClientRepository {
 
   /**
    * Guarda o actualiza un cliente.
-   * Gracias a 'cascade: true' en la entidad ORM, TypeORM guardará 
-   * automáticamente los registros en la tabla 'dependents'.
    */
   async save(client: Client): Promise<Client> {
     const ormClient = this.repository.create({
@@ -33,17 +31,11 @@ export class TypeOrmClientRepository implements ClientRepository {
       region: client.region,
       commune: client.commune,
       income: client.income,
-      /**
-       * 🔢 CORRECCIÓN DE PROPIEDAD
-       * Cambiamos 'dependentsCount' por 'dependents' para coincidir con 
-       * el nombre de la columna definido en ClientOrmEntity.
-       */
       dependents: client.dependentsCount, 
       healthInsurance: client.healthInsurance,
       status: client.status,
       createdAt: client.createdAt,
       
-      // 🔗 Mapeamos los objetos de dominio a la relación de la DB
       dependentEntities: client.dependents.map(d => ({
         id: d.id,
         rut: d.rut,
@@ -57,7 +49,21 @@ export class TypeOrmClientRepository implements ClientRepository {
   }
 
   /**
-   * Busca un cliente por email incluyendo sus cargas familiares.
+   * 🔍 BUSQUEDA POR RUT (Vital para el error legible)
+   * Sin este método, el Caso de Uso no puede validar duplicados.
+   */
+  async findByRut(rut: string): Promise<Client | null> {
+    const ormClient = await this.repository.findOne({ 
+      where: { rut },
+      relations: ['dependentEntities'] 
+    });
+    
+    if (!ormClient) return null;
+    return this.mapToDomain(ormClient);
+  }
+
+  /**
+   * Busca por email.
    */
   async findByEmail(email: string): Promise<Client | null> {
     const ormClient = await this.repository.findOne({ 
@@ -69,9 +75,6 @@ export class TypeOrmClientRepository implements ClientRepository {
     return this.mapToDomain(ormClient);
   }
 
-  /**
-   * Busca un cliente por ID incluyendo sus cargas.
-   */
   async findById(id: string): Promise<Client | null> {
     const ormClient = await this.repository.findOne({ 
       where: { id },
@@ -82,6 +85,11 @@ export class TypeOrmClientRepository implements ClientRepository {
     return this.mapToDomain(ormClient);
   }
 
+  async findAll(): Promise<Client[]> {
+    const orms = await this.repository.find({ relations: ['dependentEntities'] });
+    return orms.map(orm => this.mapToDomain(orm));
+  }
+
   async delete(id: string): Promise<void> {
     await this.repository.delete(id);
   }
@@ -90,12 +98,10 @@ export class TypeOrmClientRepository implements ClientRepository {
    * Mapeador: Transforma el modelo de DB (ORM) al modelo de Negocio (Domain).
    */
   private mapToDomain(orm: ClientOrmEntity): Client {
-    // 1. Reconstruimos la lista de objetos de dominio 'Dependent'
     const domainDependents = (orm.dependentEntities || []).map(d => 
       new Dependent(d.id, d.rut, d.age, d.createdAt)
     );
 
-    // 2. Instanciamos el Cliente con su lista real (el conteo es automático vía getter)
     return new Client(
       orm.id,
       orm.name,
