@@ -2,8 +2,10 @@ import { Inject, Injectable } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { randomUUID } from 'crypto';
 import { Client } from '../../domain/entities/client.entity';
+import { Dependent } from '../../domain/entities/dependent.entity';
 import type { ClientRepository } from '../../domain/repositories/client.repository';
 import { CreateClientDto } from '../dto/create-client.dto';
+
 /**
  * CAPA DE APLICACIÓN - CASO DE USO (ORQUESTADOR)
  * * Este es el "Director de Orquesta". Su única responsabilidad es definir
@@ -31,10 +33,28 @@ export class RegisterClientUseCase {
       throw new Error(`El correo ${dto.email} ya está registrado en el sistema.`);
     }
 
-    // 2. CREACIÓN DE LA ENTIDAD (DOMAIN OBJECT)
-    // Instanciamos el objeto de dominio donde se ejecutan las validaciones internas.
+    /**
+     * 2. PROCESAMIENTO DE CARGAS FAMILIARES
+     * Transformamos la data plana del DTO en Objetos de Dominio 'Dependent'.
+     * Si el frontend envía [], 'dependentObjects' será un arreglo vacío.
+     */
+    const rawList = Array.isArray(dto.dependentsList) ? dto.dependentsList : [];
+    
+    const dependentObjects = rawList.map((d) => 
+      new Dependent(
+        randomUUID(),
+        d.rut,
+        d.age
+      )
+    );
+
+    /**
+     * 3. CREACIÓN DE LA ENTIDAD (DOMAIN OBJECT)
+     * Notar que ya no pasamos el número de dependientes manualmente.
+     * La entidad 'Client' calculará su propio conteo basándose en 'dependentObjects'.
+     */
     const newClient = new Client(
-      randomUUID(), // Generamos el ID único (Identidad del dominio)
+      randomUUID(), // id
       dto.name,
       dto.email,
       dto.rut,
@@ -43,19 +63,23 @@ export class RegisterClientUseCase {
       dto.region,
       dto.commune,
       dto.income,
-      dto.dependents,
-      dto.healthInsurance
+      dto.healthInsurance,
+      new Date(),     // createdAt
+      'PENDIENTE',    // status
+      dependentObjects // Lista de objetos de dominio
     );
 
-    // 3. PERSISTENCIA
-    // Le pedimos al puerto que guarde la entidad.
+    // 4. PERSISTENCIA
+    // Le pedimos al puerto que guarde la entidad. 
+    // El repositorio se encargará de guardar en 'clients' y 'dependents' por cascada.
     await this.clientRepository.save(newClient);
 
-    // 4. EVENTOS DE DOMINIO
+    // 5. EVENTOS DE DOMINIO
     // Notificamos que un cliente ha sido registrado. 
     this.eventEmitter.emit('client.registered', {
       ...newClient,
-      clientId: newClient.id, // Mapeamos 'id' a 'clientId' para compatibilidad con el listener
+      clientId: newClient.id,
+      dependentsCount: newClient.dependentsCount, // Enviamos el conteo real calculado por la entidad
       timestamp: new Date()
     });
 

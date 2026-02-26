@@ -5,16 +5,20 @@
  * 2. Validación: Aquí podemos usar decoradores (como @IsEmail) para validar el Request.
  * 3. Desacoplamiento: Si el JSON externo cambia, solo modificamos este archivo, no el negocio.
  */
+import { Type } from 'class-transformer';
 import {
-  IsString,
+  IsArray,
   IsEmail,
-  IsNumber,
   IsNotEmpty,
-  Min,
-  Max,
+  IsNumber,
+  IsOptional,
+  IsString,
   Length,
   Matches,
+  Min,
+  ValidateNested
 } from 'class-validator';
+import { CreateDependentDto } from './create-dependent.dto';
 
 export class CreateClientDto {
   @IsString({ message: 'El nombre debe ser una cadena de texto' })
@@ -59,11 +63,11 @@ export class CreateClientDto {
   @Min(0, { message: 'El ingreso no puede ser negativo' })
   readonly income: number;
 
-  @IsNumber({}, { message: 'El número de dependientes debe ser un número' })
-  @IsNotEmpty({ message: 'El número de dependientes es requerido' })
-  @Min(0, { message: 'El número de dependientes no puede ser negativo' })
-  @Max(20, { message: 'El número de dependientes no puede ser mayor a 20' })
-  readonly dependents: number;
+  @IsOptional()
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => CreateDependentDto)
+  readonly dependentsList?: CreateDependentDto[]; 
 
   @IsString({ message: 'La previsión de salud debe ser una cadena de texto' })
   @IsNotEmpty({ message: 'La previsión de salud es requerida' })
