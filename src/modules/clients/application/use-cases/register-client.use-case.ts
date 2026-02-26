@@ -33,6 +33,11 @@ export class RegisterClientUseCase {
       throw new Error(`El correo ${dto.email} ya está registrado en el sistema.`);
     }
 
+    const existingClientByRut = await this.clientRepository.findByRut(dto.rut);
+    if (existingClientByRut) {
+      throw new Error(`El RUT ${dto.rut} ya está registrado en el sistema.`);
+    }
+
     /**
      * 2. PROCESAMIENTO DE CARGAS FAMILIARES
      * Transformamos la data plana del DTO en Objetos de Dominio 'Dependent'.
