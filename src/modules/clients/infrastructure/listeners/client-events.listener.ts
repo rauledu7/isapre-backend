@@ -1,16 +1,17 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { OnEvent } from '@nestjs/event-emitter';
 
 /**
  * CAPA DE INFRAESTRUCTURA - LISTENER
- * Envía notificaciones a Telegram cuando ocurre un registro.
+ * Envía notificaciones detalladas a Telegram cuando ocurre un registro.
  */
 @Injectable()
 export class ClientEventsListener {
+  private readonly logger = new Logger(ClientEventsListener.name);
   
   /**
    * Maneja el evento de registro.
-   * IMPORTANTE: El payload ahora usa 'dependentsCount' para el número de cargas.
+   * Recibe el payload completo desde el Use Case.
    */
   @OnEvent('client.registered')
   async handleClientRegistered(payload: { 
@@ -21,43 +22,44 @@ export class ClientEventsListener {
     phone: string;
     age: number;
     income: number;
-    dependentsCount: number; // Coincide con lo que emite el Use Case
+    dependentsCount: number; 
     healthInsurance: string;
-  }){
-    console.log(`[Telegram] Preparando notificación para: ${payload.name}`);
+  }) {
+    this.logger.log(`🔔 Evento recibido: ${payload.name}. Preparando notificación extendida...`);
 
-    // Formateamos el ingreso a moneda CLP para que se vea profesional
+    // Formateamos el ingreso a moneda CLP
     const formattedIncome = new Intl.NumberFormat('es-CL', {
       style: 'currency',
       currency: 'CLP',
-    }).format(payload.income);
+    }).format(payload.income || 0);
 
-    const message = `🚀 <b>NUEVO CLIENTE REGISTRADO</b>\n\n` +
+    // Construcción del mensaje con formato HTML enriquecido
+    const message = `🚀 <b>NUEVO LEAD REGISTRADO</b>\n\n` +
                     `👤 <b>Nombre:</b> ${payload.name}\n` +
                     `📧 <b>Email:</b> ${payload.email}\n` +
                     `🆔 <b>RUT:</b> ${payload.rut}\n` +
                     `📞 <b>Teléfono:</b> ${payload.phone}\n` +
                     `🎂 <b>Edad:</b> ${payload.age} años\n` +
                     `💰 <b>Ingreso mensual:</b> ${formattedIncome}\n` +
-                    `👥 <b>Cargas:</b> ${payload.dependentsCount}\n` + // Usamos dependentsCount
+                    `👨‍👩‍👧‍👦 <b>Cargas registradas:</b> ${payload.dependentsCount}\n` +
                     `🏥 <b>Previsión actual:</b> ${payload.healthInsurance}\n\n` +
                     `🆔 <b>ID Interno:</b> <code>${payload.clientId.substring(0, 8)}...</code>\n\n` +
                     `<i>Favor revisar el panel de administración.</i>`;
 
-    try {
-      await this.sendTelegramMessage(message);
-    } catch (error) {
-      console.error('❌ [Telegram Error]:', error.message);
-    }
+    await this.sendTelegramMessage(message);
   }
 
   private async sendTelegramMessage(message: string) {
-    // Usamos los nombres exactos que tienes en Google Cloud Run
+    /**
+     * ⚠️ REVISIÓN DE VARIABLES
+     * Mantenemos la lógica de detección dual para evitar errores 
+     * entre la configuración de Google Cloud y el .env local.
+     */
     const BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN; 
-    const CHAT_ID = process.env.CHAT_ID; 
+    const CHAT_ID = process.env.CHAT_ID || process.env.TELEGRAM_CHAT_ID; 
 
     if (!BOT_TOKEN || !CHAT_ID) {
-      console.warn('⚠️ [Telegram] Falta configurar TELEGRAM_BOT_TOKEN o CHAT_ID en las variables de entorno.');
+      this.logger.error('❌ Error: TELEGRAM_BOT_TOKEN o CHAT_ID no detectados en las variables de entorno.');
       return;
     }
 
@@ -77,12 +79,12 @@ export class ClientEventsListener {
       const result = await response.json();
 
       if (response.ok) {
-        console.log(`[Telegram] ✅ Notificación enviada con éxito.`);
+        this.logger.log('✅ Notificación de Telegram enviada con éxito.');
       } else {
-        console.error(`[Telegram] ⛔ Error de API: ${result.description}`);
+        this.logger.error(`⛔ Telegram API respondió con error: ${result.description}`);
       }
     } catch (err) {
-      console.error(`[Telegram] 🛑 Error de red: ${err.message}`);
+      this.logger.error(`🛑 Fallo de red al conectar con Telegram: ${err.message}`);
     }
   }
 }
