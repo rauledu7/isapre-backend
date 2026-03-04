@@ -4,65 +4,72 @@ import { AppModule } from './app.module';
 
 /**
  * 🚀 FUNCIÓN DE ARRANQUE (Bootstrap)
- * Optimizada para depurar errores de inicio en Google Cloud Run.
+ * Optimizada para detectar fallos de configuración de variables en Google Cloud Run.
  */
 async function bootstrap() {
   const logger = new Logger('Bootstrap');
   
   try {
-    logger.log('--- INICIO DE DIAGNÓSTICO ---');
+    logger.log('--- INICIO DE DIAGNÓSTICO DE ENTORNO ---');
     
-    // Verificamos el puerto y el entorno sin revelar secretos
     const port = process.env.PORT || 8080;
-    const hasDbUrl = !!process.env.DATABASE_URL;
-    const dbHost = process.env.DB_HOST || 'No definido';
+    const dbUrl = process.env.DATABASE_URL;
     
-    logger.log(`Variable PORT detectada: ${process.env.PORT || 'Usando default 8080'}`);
-    logger.log(`¿Existe DATABASE_URL?: ${hasDbUrl ? 'SÍ' : 'NO'}`);
-    logger.log(`DB_HOST actual: ${dbHost}`);
-    logger.log('------------------------------');
+    // 🚩 VERIFICACIÓN CRÍTICA:
+    // Si estamos en Cloud Run y no hay DATABASE_URL, la app va a fallar.
+    if (!dbUrl) {
+      logger.warn('⚠️ ADVERTENCIA: La variable DATABASE_URL no está definida.');
+      logger.warn('La aplicación intentará usar la configuración LOCAL (host: db).');
+      logger.warn('Si esto es Google Cloud Run, el despliegue FALLARÁ por timeout.');
+    } else {
+      logger.log('✅ DATABASE_URL detectada. Procediendo a conectar con la nube...');
+    }
+
+    logger.log(`Puerto de escucha configurado: ${port}`);
+    logger.log('---------------------------------------');
 
     logger.log('1. 🛠️  Creando instancia de NestJS...');
     
     /**
-     * IMPORTANTE: Si la app se queda "pegada" aquí, el problema está 
-     * en la conexión de TypeORM dentro de AppModule.
+     * Si el proceso se detiene aquí, revisa los logs de AppModule.
+     * Probablemente hay un re-intento infinito de conexión a base de datos.
      */
     const app = await NestFactory.create(AppModule);
 
-    // Configuración de seguridad y validación
+    // Configuración de CORS para evitar bloqueos en el navegador (image_62233a.png)
     app.enableCors({
       origin: '*', 
       methods: 'GET,HEAD,PUT,PATCH,POST,DELETE',
       credentials: true,
     });
 
+    // Transformación automática de datos (ej: strings a numbers)
     app.useGlobalPipes(new ValidationPipe({
       whitelist: true,
       forbidNonWhitelisted: true,
       transform: true,
     }));
 
-    logger.log(`2. 📡 Intentando abrir puerto ${port} en 0.0.0.0...`);
+    logger.log(`2. 📡 Abriendo puerto ${port} en interfaz 0.0.0.0...`);
     
     /**
-     * Obligatorio: Escuchar en '0.0.0.0' para Cloud Run.
-     * El puerto DEBE ser el que entrega la variable de entorno PORT.
+     * Escuchar en 0.0.0.0 es indispensable para que el tráfico externo 
+     * llegue al contenedor en Cloud Run.
      */
     await app.listen(Number(port), '0.0.0.0');
     
     logger.log(`3. ✅ ¡SISTEMA ONLINE! Backend escuchando en puerto ${port}`);
     
   } catch (error) {
-    logger.error('❌ FALLO CRÍTICO: La aplicación no pudo arrancar.');
-    logger.error(`Mensaje: ${error.message}`);
+    logger.error('❌ ERROR CRÍTICO: El servidor no pudo iniciarse.');
+    logger.error(`Mensaje del error: ${error.message}`);
     
     if (error.stack) {
-      logger.error('Revisa si la URL de la base de datos es correcta o si hay problemas de SSL.');
+      logger.error('Detalles del fallo (Stack Trace):');
       logger.error(error.stack);
     }
     
-    // Salida forzada para que Google Cloud detecte el fallo inmediatamente
+    // Salida forzada para avisar a Cloud Run del error inmediatamente
     process.exit(1);
   }
 }
