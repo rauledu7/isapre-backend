@@ -4,72 +4,69 @@ import { AppModule } from './app.module';
 
 /**
  * 🚀 FUNCIÓN DE ARRANQUE (Bootstrap)
- * Optimizada para detectar fallos de configuración de variables en Google Cloud Run.
+ * Versión optimizada para depurar el error de "Timeout/Port" en Cloud Run.
  */
 async function bootstrap() {
   const logger = new Logger('Bootstrap');
   
   try {
-    logger.log('--- INICIO DE DIAGNÓSTICO DE ENTORNO ---');
+    logger.log('--- INICIO DE DIAGNÓSTICO ---');
     
     const port = process.env.PORT || 8080;
     const dbUrl = process.env.DATABASE_URL;
     
-    // 🚩 VERIFICACIÓN CRÍTICA:
-    // Si estamos en Cloud Run y no hay DATABASE_URL, la app va a fallar.
+    // Validamos la presencia de la variable antes de iniciar NestJS
     if (!dbUrl) {
-      logger.warn('⚠️ ADVERTENCIA: La variable DATABASE_URL no está definida.');
-      logger.warn('La aplicación intentará usar la configuración LOCAL (host: db).');
-      logger.warn('Si esto es Google Cloud Run, el despliegue FALLARÁ por timeout.');
+      logger.warn('⚠️ ADVERTENCIA: No se detectó DATABASE_URL. La app usará configuración LOCAL.');
+      logger.warn('Si estás en la nube, esto causará un error de "Timeout" al no encontrar el host "db".');
     } else {
-      logger.log('✅ DATABASE_URL detectada. Procediendo a conectar con la nube...');
+      logger.log(`✅ DATABASE_URL detectada (Longitud: ${dbUrl.length} caracteres).`);
     }
 
-    logger.log(`Puerto de escucha configurado: ${port}`);
-    logger.log('---------------------------------------');
+    logger.log(`Configuración de puerto: ${port}`);
+    logger.log('------------------------------');
 
-    logger.log('1. 🛠️  Creando instancia de NestJS...');
-    
     /**
-     * Si el proceso se detiene aquí, revisa los logs de AppModule.
-     * Probablemente hay un re-intento infinito de conexión a base de datos.
+     * 1. CREACIÓN DE LA APP
+     * NestFactory.create dispara la inicialización de módulos. 
+     * Si la conexión a la DB falla o tarda mucho, el log se detendrá aquí.
      */
+    logger.log('1. Levantando módulos de NestJS...');
     const app = await NestFactory.create(AppModule);
 
-    // Configuración de CORS para evitar bloqueos en el navegador (image_62233a.png)
+    // Habilitamos CORS para permitir peticiones desde el Frontend
     app.enableCors({
       origin: '*', 
       methods: 'GET,HEAD,PUT,PATCH,POST,DELETE',
       credentials: true,
     });
 
-    // Transformación automática de datos (ej: strings a numbers)
+    // Filtros de validación para los DTOs
     app.useGlobalPipes(new ValidationPipe({
       whitelist: true,
       forbidNonWhitelisted: true,
       transform: true,
     }));
 
-    logger.log(`2. 📡 Abriendo puerto ${port} en interfaz 0.0.0.0...`);
-    
     /**
-     * Escuchar en 0.0.0.0 es indispensable para que el tráfico externo 
-     * llegue al contenedor en Cloud Run.
+     * 2. ESCUCHA DEL PUERTO
+     * Cloud Run requiere que la app escuche en '0.0.0.0'.
      */
-    await app.listen(Number(port), '0.0.0.0');
+    logger.log(`2. Intentando escuchar en el puerto ${port}...`);
+    await app.listen(port, '0.0.0.0');
     
-    logger.log(`3. ✅ ¡SISTEMA ONLINE! Backend escuchando en puerto ${port}`);
+    logger.log(`3. ✅ ¡SISTEMA ONLINE! App funcionando en puerto ${port}`);
     
   } catch (error) {
-    logger.error('❌ ERROR CRÍTICO: El servidor no pudo iniciarse.');
-    logger.error(`Mensaje del error: ${error.message}`);
+    logger.error('❌ FALLO CRÍTICO EN EL ARRANQUE:');
+    logger.error(error.message);
     
     if (error.stack) {
-      logger.error('Detalles del fallo (Stack Trace):');
+      logger.error('Detalles técnicos del fallo:');
       logger.error(error.stack);
     }
     
-    // Salida forzada para avisar a Cloud Run del error inmediatamente
+    // Terminamos el proceso para que Google detecte el fallo de inmediato
     process.exit(1);
   }
 }
