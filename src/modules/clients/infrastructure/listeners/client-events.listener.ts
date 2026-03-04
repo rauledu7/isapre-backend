@@ -84,6 +84,7 @@ export class ClientEventsListener {
         this.logger.error(`⛔ Telegram API respondió con error: ${result.description}`);
       }
     } catch (err) {
+      //fallo de red al conectar con Telegram
       this.logger.error(`🛑 Fallo de red al conectar con Telegram: ${err.message}`);
     }
   }

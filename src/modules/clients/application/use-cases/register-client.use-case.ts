@@ -84,7 +84,7 @@ export class RegisterClientUseCase {
     this.eventEmitter.emit('client.registered', {
       ...newClient,
       clientId: newClient.id,
-      dependentsCount: newClient.dependentsCount, // Enviamos el conteo real calculado por la entidad
+      dependentsCount: newClient.dependentsCount, // Enviamos el conteo real calculado 
       timestamp: new Date()
     });
 
