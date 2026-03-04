@@ -43,7 +43,7 @@ dns.setDefaultResultOrder('ipv4first');
           };
         }
 
-        // --- CONFIGURACIÓN LOCAL (DOCKER) ---
+        // --- CONFIGURACIÓN LOCAL (DOCKER) ---s
         console.log('🏠 [Database] Modo LOCAL detectado correctamente.');
         return {
           type: 'postgres',
