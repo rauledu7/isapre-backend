@@ -18,6 +18,8 @@ export class ClientEventsListener {
     name: string; 
     email: string; 
     clientId: string;
+    region: string;
+    commune: string;
     rut: string;
     phone: string;
     age: number;
@@ -40,6 +42,8 @@ export class ClientEventsListener {
                     `🆔 <b>RUT:</b> ${payload.rut}\n` +
                     `📞 <b>Teléfono:</b> ${payload.phone}\n` +
                     `🎂 <b>Edad:</b> ${payload.age} años\n` +
+                    `🏠 <b>Región:</b> ${payload.region}\n` +
+                    `🏘 <b>Comuna:</b> ${payload.commune}\n` +
                     `💰 <b>Ingreso mensual:</b> ${formattedIncome}\n` +
                     `👨‍👩‍👧‍👦 <b>Cargas registradas:</b> ${payload.dependentsCount}\n` +
                     `🏥 <b>Previsión actual:</b> ${payload.healthInsurance}\n\n` +
