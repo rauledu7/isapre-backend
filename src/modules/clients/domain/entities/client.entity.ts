@@ -17,8 +17,7 @@ export class Client {
         public readonly rut: string,
         public readonly phone: string,
         public readonly age: number,
-        public readonly region: string,
-        public readonly commune: string,
+        public readonly clinics: string,
         public readonly income: number,
         public readonly healthInsurance: string, // Eliminamos 'dependents: number' del constructor
         createdAt?: Date,

@@ -48,15 +48,10 @@ export class CreateClientDto {
   @Min(0, { message: 'La edad no puede ser negativa' })
   readonly age: number;
 
-  @IsString({ message: 'La región debe ser una cadena de texto' })
-  @IsNotEmpty({ message: 'La región es requerida' })
-  @Length(2, 50, { message: 'La región debe tener entre 2 y 50 caracteres' })
-  readonly region: string;
-
-  @IsString({ message: 'La comuna debe ser una cadena de texto' })
-  @IsNotEmpty({ message: 'La comuna es requerida' })
-  @Length(2, 50, { message: 'La comuna debe tener entre 2 y 50 caracteres' })
-  readonly commune: string;
+  @IsOptional()
+  @IsString({ message: 'Las clínicas preferentes deben ser una cadena de texto' })
+  @Length(2, 100, { message: 'Las clínicas preferentes deben tener entre 2 y 100 caracteres' })
+  readonly clinics: string;
 
   @IsNumber({}, { message: 'El ingreso debe ser un número' })
   @IsNotEmpty({ message: 'El ingreso es requerido' })

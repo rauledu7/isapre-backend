@@ -65,8 +65,7 @@ export class RegisterClientUseCase {
       dto.rut,
       dto.phone,
       dto.age,
-      dto.region,
-      dto.commune,
+      dto.clinics,
       dto.income,
       dto.healthInsurance,
       new Date(),     // createdAt

@@ -28,10 +28,7 @@ export class ClientOrmEntity {
   age: number;
 
   @Column()
-  region: string;
-
-  @Column()
-  commune: string;
+  clinics: string;
 
   // Usamos decimal para precisión financiera en la renta
   @Column()
