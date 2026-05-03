@@ -48,10 +48,10 @@ export class RegisterClientUseCase {
       dto.clinics,
       dto.income,
       dto.healthInsurance,
+      dto.dependentsCount || 0,     // Nuevo campo: Cantidad de cargas
+      dto.dependentsAges || '',      // Nuevo campo: String de edades "12,4,2"
       new Date(),       // createdAt
       'PENDIENTE',      // status
-      dto.dependentsCount || 0,     // Nuevo campo: Cantidad de cargas
-      dto.dependentsAges || ''      // Nuevo campo: String de edades "12,4,2"
     );
 
     // 3. PERSISTENCIA
