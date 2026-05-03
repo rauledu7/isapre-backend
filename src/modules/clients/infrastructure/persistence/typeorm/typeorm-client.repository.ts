@@ -2,13 +2,12 @@ import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Client } from '../../../domain/entities/client.entity';
-import { Dependent } from '../../../domain/entities/dependent.entity';
 import { ClientRepository } from '../../../domain/repositories/client.repository';
 import { ClientOrmEntity } from './client.orm-entity';
 
 /**
  * CAPA DE INFRAESTRUCTURA - ADAPTADOR DE SALIDA
- * Implementación concreta que maneja la persistencia de Clientes y sus Cargas.
+ * Implementación actualizada para manejar cargas familiares como columnas directas.
  */
 @Injectable()
 export class TypeOrmClientRepository implements ClientRepository {
@@ -30,17 +29,12 @@ export class TypeOrmClientRepository implements ClientRepository {
       age: client.age,
       clinics: client.clinics,
       income: client.income,
-      dependents: client.dependentsCount, 
       healthInsurance: client.healthInsurance,
       status: client.status,
       createdAt: client.createdAt,
-      
-      dependentEntities: client.dependents.map(d => ({
-        id: d.id,
-        rut: d.rut,
-        age: d.age,
-        createdAt: d.createdAt
-      }))
+      // NUEVOS CAMPOS DIRECTOS:
+      dependentsCount: client.dependentsCount,
+      dependentsAges: client.dependentsAges
     });
 
     await this.repository.save(ormClient);
@@ -48,15 +42,10 @@ export class TypeOrmClientRepository implements ClientRepository {
   }
 
   /**
-   * 🔍 BUSQUEDA POR RUT (Vital para el error legible)
-   * Sin este método, el Caso de Uso no puede validar duplicados.
+   * Busca por RUT.
    */
   async findByRut(rut: string): Promise<Client | null> {
-    const ormClient = await this.repository.findOne({ 
-      where: { rut },
-      relations: ['dependentEntities'] 
-    });
-    
+    const ormClient = await this.repository.findOne({ where: { rut } });
     if (!ormClient) return null;
     return this.mapToDomain(ormClient);
   }
@@ -65,27 +54,19 @@ export class TypeOrmClientRepository implements ClientRepository {
    * Busca por email.
    */
   async findByEmail(email: string): Promise<Client | null> {
-    const ormClient = await this.repository.findOne({ 
-      where: { email },
-      relations: ['dependentEntities'] 
-    });
-    
+    const ormClient = await this.repository.findOne({ where: { email } });
     if (!ormClient) return null;
     return this.mapToDomain(ormClient);
   }
 
   async findById(id: string): Promise<Client | null> {
-    const ormClient = await this.repository.findOne({ 
-      where: { id },
-      relations: ['dependentEntities'] 
-    });
-    
+    const ormClient = await this.repository.findOne({ where: { id } });
     if (!ormClient) return null;
     return this.mapToDomain(ormClient);
   }
 
   async findAll(): Promise<Client[]> {
-    const orms = await this.repository.find({ relations: ['dependentEntities'] });
+    const orms = await this.repository.find();
     return orms.map(orm => this.mapToDomain(orm));
   }
 
@@ -97,10 +78,6 @@ export class TypeOrmClientRepository implements ClientRepository {
    * Mapeador: Transforma el modelo de DB (ORM) al modelo de Negocio (Domain).
    */
   private mapToDomain(orm: ClientOrmEntity): Client {
-    const domainDependents = (orm.dependentEntities || []).map(d => 
-      new Dependent(d.id, d.rut, d.age, d.createdAt)
-    );
-
     return new Client(
       orm.id,
       orm.name,
@@ -111,9 +88,10 @@ export class TypeOrmClientRepository implements ClientRepository {
       orm.clinics,
       Number(orm.income),
       orm.healthInsurance,
+      orm.dependentsCount, // Nuevo
+      orm.dependentsAges,  // Nuevo
       orm.createdAt,
-      orm.status as 'PENDIENTE' | 'ACTIVO',
-      domainDependents
+      orm.status as 'PENDIENTE' | 'ACTIVO'
     );
   }
 }

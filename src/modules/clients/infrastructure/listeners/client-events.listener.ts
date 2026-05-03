@@ -24,6 +24,7 @@ export class ClientEventsListener {
     age: number;
     income: number;
     dependentsCount: number; 
+    dependentsAges: string; 
     healthInsurance: string;
   }) {
     this.logger.log(`🔔 Evento recibido: ${payload.name}. Preparando notificación extendida...`);
@@ -44,6 +45,7 @@ export class ClientEventsListener {
                     `🏘 <b>Clinicas preferentes:</b> ${payload.clinics}\n` +
                     `💰 <b>Ingreso mensual:</b> ${formattedIncome}\n` +
                     `👨‍👩‍👧‍👦 <b>Cargas registradas:</b> ${payload.dependentsCount}\n` +
+                    `👨‍👩‍👧‍👦 <b>Edades de las cargas:</b> ${payload.dependentsAges}\n` +
                     `🏥 <b>Previsión actual:</b> ${payload.healthInsurance}\n\n` +
                     `🆔 <b>ID Interno:</b> <code>${payload.clientId.substring(0, 8)}...</code>\n\n` +
                     `<i>Favor revisar el panel de administración.</i>`;

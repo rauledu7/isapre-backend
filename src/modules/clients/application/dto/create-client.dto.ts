@@ -59,10 +59,14 @@ export class CreateClientDto {
   readonly income: number;
 
   @IsOptional()
-  @IsArray()
-  @ValidateNested({ each: true })
-  @Type(() => CreateDependentDto)
-  readonly dependentsList?: CreateDependentDto[]; 
+  @IsNumber({}, { message: 'El ingreso debe ser un número' })
+  @Min(0, { message: 'El ingreso no puede ser negativo' })
+  readonly dependentsCount: number;
+
+  @IsOptional()
+  @IsString({ message: 'Las edades deben ser una cadena de texto' })
+  @Length(1, 100, { message: 'Las edades deben tener entre 1 y 100 caracteres' })
+  readonly dependentsAges: string;
 
   @IsString({ message: 'La previsión de salud debe ser una cadena de texto' })
   @IsNotEmpty({ message: 'La previsión de salud es requerida' })

@@ -2,21 +2,16 @@ import { Inject, Injectable } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { randomUUID } from 'crypto';
 import { Client } from '../../domain/entities/client.entity';
-import { Dependent } from '../../domain/entities/dependent.entity';
 import type { ClientRepository } from '../../domain/repositories/client.repository';
 import { CreateClientDto } from '../dto/create-client.dto';
 
 /**
  * CAPA DE APLICACIÓN - CASO DE USO (ORQUESTADOR)
- * * Este es el "Director de Orquesta". Su única responsabilidad es definir
- * los pasos necesarios para registrar un cliente, sin importar qué
- * base de datos o framework se esté utilizando.
+ * Ajustado para manejar conteo y edades de cargas como campos directos.
  */
 @Injectable()
 export class RegisterClientUseCase {
   constructor(
-    // Inyectamos el "Puerto" (Interfaz). Gracias a esto, si cambiamos
-    // la base de datos en el futuro, este archivo NO se modifica.
     @Inject('ClientRepository')
     private readonly clientRepository: ClientRepository,
     private readonly eventEmitter: EventEmitter2,
@@ -24,10 +19,10 @@ export class RegisterClientUseCase {
 
   /**
    * Ejecuta la lógica de negocio para registrar un nuevo cliente.
-   * @param dto Datos validados provenientes del exterior.
+   * @param dto Datos validados provenientes del exterior (incluye dependentsCount y dependentsAges).
    */
   async execute(dto: CreateClientDto): Promise<Client> {
-    // 1. REGLA DE NEGOCIO: Verificar si el cliente ya existe por email
+    // 1. REGLA DE NEGOCIO: Verificar duplicados
     const existingClient = await this.clientRepository.findByEmail(dto.email);
     if (existingClient) {
       throw new Error(`El correo ${dto.email} ya está registrado en el sistema.`);
@@ -39,24 +34,9 @@ export class RegisterClientUseCase {
     }
 
     /**
-     * 2. PROCESAMIENTO DE CARGAS FAMILIARES
-     * Transformamos la data plana del DTO en Objetos de Dominio 'Dependent'.
-     * Si el frontend envía [], 'dependentObjects' será un arreglo vacío.
-     */
-    const rawList = Array.isArray(dto.dependentsList) ? dto.dependentsList : [];
-    
-    const dependentObjects = rawList.map((d) => 
-      new Dependent(
-        randomUUID(),
-        d.rut,
-        d.age
-      )
-    );
-
-    /**
-     * 3. CREACIÓN DE LA ENTIDAD (DOMAIN OBJECT)
-     * Notar que ya no pasamos el número de dependientes manualmente.
-     * La entidad 'Client' calculará su propio conteo basándose en 'dependentObjects'.
+     * 2. CREACIÓN DE LA ENTIDAD (DOMAIN OBJECT)
+     * Ahora pasamos directamente dependentsCount (number) y dependentsAges (string).
+     * Asegúrate de que el constructor de tu entidad 'Client' acepte estos campos.
      */
     const newClient = new Client(
       randomUUID(), // id
@@ -68,22 +48,21 @@ export class RegisterClientUseCase {
       dto.clinics,
       dto.income,
       dto.healthInsurance,
-      new Date(),     // createdAt
-      'PENDIENTE',    // status
-      dependentObjects // Lista de objetos de dominio
+      new Date(),       // createdAt
+      'PENDIENTE',      // status
+      dto.dependentsCount || 0,     // Nuevo campo: Cantidad de cargas
+      dto.dependentsAges || ''      // Nuevo campo: String de edades "12,4,2"
     );
 
-    // 4. PERSISTENCIA
-    // Le pedimos al puerto que guarde la entidad. 
-    // El repositorio se encargará de guardar en 'clients' y 'dependents' por cascada.
+    // 3. PERSISTENCIA
+    // El repositorio guardará estos campos directamente en la tabla 'clients'.
     await this.clientRepository.save(newClient);
 
-    // 5. EVENTOS DE DOMINIO
+    // 4. EVENTOS DE DOMINIO
     // Notificamos que un cliente ha sido registrado. 
     this.eventEmitter.emit('client.registered', {
       ...newClient,
       clientId: newClient.id,
-      dependentsCount: newClient.dependentsCount, // Enviamos el conteo real calculado 
       timestamp: new Date()
     });
 
